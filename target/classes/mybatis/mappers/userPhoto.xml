@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="himedia.hpm_spring_portfolio.mappers.UserPhotoMapper">
+
+	<!-- 프로필 사진 업로드 -->
+	<!-- 기존 프로필 사진이 있다면 덮어쓰기 -->
+    <insert id="insertOrUpdatePhoto" parameterType="UserPhotoVo">
+        INSERT INTO user_photos (
+            file_name, file_path, update_date, users_id
+        )
+        VALUES (
+            #{fileName}, #{filePath}, #{updateDate}, #{usersId}
+        )
+        ON DUPLICATE KEY UPDATE
+        file_name = VALUES(file_name),
+  		file_path = VALUES(file_path),
+   		update_date = VALUES(update_date);
+    </insert>
+    
+
+	<!-- 해당 ID 프로필 사진 조회 -->
+     <select id="selectPhotoByUserId" parameterType="Long" resultType="UserPhotoVo">
+        SELECT 
+            id,
+            users_id as usersId,
+            file_name as fileName,
+            file_path as filePath,
+            update_date as updateDate
+        FROM 
+            user_photos
+        WHERE 
+            users_id = #{usersId}
+    </select> 
+
+	<!-- 해당 ID 프로필 사진 삭제 -->
+    <delete id="deletePhotoByUserId" parameterType="Long">
+        DELETE FROM
+        	user_photos 
+        WHERE
+        	users_id = #{usersId}
+    </delete>
+
+</mapper>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper
+	namespace="himedia.hpm_spring_portfolio.mappers.RestaurantReviewLikeMapper">
+	<resultMap id="rLikeResultMap"
+		type="himedia.hpm_spring_portfolio.repository.vo.RestaurantReviewLikeVo">
+		<result property="id" column="id" />
+		<result property="usersId" column="users_id" />
+		<result property="restaurantReviewsId" column="restaurant_reviews_id" />
+		<result property="isLike" column="is_like" />
+	</resultMap>
+
+	<select id="selectLikeCount" parameterType="Long"
+		resultType="int">
+		SELECT COUNT(*) FROM restaurant_review_likes
+		WHERE restaurant_reviews_id = #{restaurantReviewsId} AND is_like = TRUE
+	</select>
+
+	<select id="isLiked" parameterType="rLikeVo" resultType="int">
+		SELECT COUNT(*) FROM restaurant_review_likes
+		WHERE users_id = #{usersId} AND restaurant_reviews_id = #{restaurantReviewsId} AND is_like = TRUE
+	</select>
+
+	<select id="exists" parameterType="rLikeVo" resultType="int">
+		SELECT COUNT(*) FROM restaurant_review_likes
+		WHERE users_id = #{usersId} AND restaurant_reviews_id = #{restaurantReviewsId}
+	</select>
+
+	<insert id="insertLike" parameterType="rLikeVo">
+		INSERT INTO restaurant_review_likes (users_id, restaurant_reviews_id, is_like)
+		VALUES (#{usersId}, #{restaurantReviewsId}, TRUE)
+	</insert>
+
+	<update id="updateLike" parameterType="rLikeVo">
+		UPDATE restaurant_review_likes
+		SET is_like = TRUE
+		WHERE users_id = #{usersId} AND restaurant_reviews_id = #{restaurantReviewsId}
+	</update>
+
+	<update id="cancelLike" parameterType="rLikeVo">
+		UPDATE restaurant_review_likes
+		SET is_like = FALSE
+		WHERE users_id = #{usersId} AND restaurant_reviews_id = #{restaurantReviewsId}
+	</update>
+
+</mapper>

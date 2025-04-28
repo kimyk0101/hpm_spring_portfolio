@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+ <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+ 	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+ <mapper namespace="himedia.hpm_spring_portfolio.mappers.UserMapper">
+ <resultMap id="userResultMap" type="himedia.hpm_spring_portfolio.repository.vo.UserVo">
+        <result property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="nickname" column="nickname"/>
+        <result property="userId" column="user_id"/>
+        <result property="password" column="password"/>
+        <result property="birth" column="birth"/>
+        <result property="phoneNumber" column="phone_number"/>
+        <result property="email" column="email"/>
+        <result property="address" column="address"/>
+        <result property="registerDate" column="register_date"/>
+    </resultMap>
+    
+ 	<!-- 전체 유저 조회 -->
+ 	<select id="retrieveAllUsers" resultMap="userResultMap">
+ 		SELECT * FROM users ORDER BY id DESC
+ 	</select>
+ 
+ 	<!-- 특정 유저 조회 -->
+ 	<select id="retrieveUserById" parameterType="Long" resultMap="userResultMap">
+ 		SELECT * FROM users WHERE id=#{id}
+ 	</select>
+ 	
+ 	<!-- 회원가입 -->
+ 	<insert id="registerUser" parameterType="UserVo">
+ 		INSERT INTO users
+ 		(name, nickname, user_id, password, birth, phone_number, email, address, register_date)
+ 		VALUES (#{name}, #{nickname}, #{userId}, #{password}, #{birth}, #{phoneNumber}, #{email}, #{address}, #{registerDate})
+ 	</insert>
+ 
+ 	<!-- 로그인 -->
+ 	<select id="authenticateUser" parameterType="String" resultMap="userResultMap">
+ 		SELECT * FROM users 
+ 		WHERE user_id=#{userId} AND password=#{password}
+ 	</select>
+ 
+ 	<!-- 유저 정보 수정 -->
+ 	<update id="updateUserFields" parameterType="UserVo">
+ 		UPDATE users 
+ 		SET name=#{name}, nickname=#{nickname}, user_id=#{userId}, password=#{password}, 
+ 		birth=#{birth}, phone_number=#{phoneNumber}, email=#{email}, address=#{address}
+ 		WHERE id=#{id}
+ 	</update>
+ 
+ 	<!-- 유저 삭제 -->
+ 	<delete id="deleteUser" parameterType="Long">
+ 		DELETE FROM users WHERE id=#{id}
+ 	</delete>
+ 	
+ 	<!-- 아이디 중복 체크 -->
+ 	<select id="countByUserId" parameterType="String" resultType="int">
+        SELECT COUNT(*) FROM users WHERE user_id = #{userId}
+    </select>
+    
+    <!-- 닉네임 중복 체크 -->
+ 	<select id="countByNickname" parameterType="String" resultType="int">
+        SELECT COUNT(*) FROM users WHERE nickname = #{nickname}
+    </select>
+ 	
+ 
+ </mapper>
