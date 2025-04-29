@@ -1,0 +1,5 @@
+# AWS 인증 정보 보호
+src/main/resources/application.properties
+
+# 빌드 결과물 무시
+/target/
