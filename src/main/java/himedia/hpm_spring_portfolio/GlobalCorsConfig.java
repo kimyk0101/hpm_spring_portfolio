@@ -10,8 +10,7 @@ public class GlobalCorsConfig implements WebMvcConfigurer {
 	  @Override
 	   public void addCorsMappings(CorsRegistry registry) {
 	       registry.addMapping("/api/**")
-	               .allowedOrigins("http://localhost:5173",
-	            		   "http://ec2-3-39-235-2.ap-northeast-2.compute.amazonaws.com:8080")  // 프론트엔드 주소
+	               .allowedOrigins("http://localhost:5173")
 	               .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH")
 	               .allowedHeaders("*")
 	               .maxAge(3600)

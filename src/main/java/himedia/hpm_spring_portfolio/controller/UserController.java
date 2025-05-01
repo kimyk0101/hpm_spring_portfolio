@@ -33,7 +33,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import himedia.hpm_spring_portfolio.repository.vo.UserLoginData;
+import himedia.hpm_spring_portfolio.dto.LoginRequestDto;
+import himedia.hpm_spring_portfolio.dto.PasswordUpdateRequestDto;
 import himedia.hpm_spring_portfolio.repository.vo.UserVo;
 import himedia.hpm_spring_portfolio.service.UserService;
 import jakarta.servlet.http.HttpSession;
@@ -43,98 +44,140 @@ import jakarta.servlet.http.HttpSession;
 public class UserController {
 
 	@Autowired
-    private UserService userService;
+	private UserService userService;
 
-    // GET : /api/users -> 모든 유저 조회
-    @GetMapping
-    public ResponseEntity<List<UserVo>> retrieveAllUsers() {
-        List<UserVo> users = userService.retrieveAllUsers();
-        return ResponseEntity.ok(users);
-    }
+	// GET : /api/users -> 모든 유저 조회
+	@GetMapping
+	public ResponseEntity<List<UserVo>> retrieveAllUsers() {
+		List<UserVo> users = userService.retrieveAllUsers();
+		return ResponseEntity.ok(users);
+	}
 
-    // POST : /api/users/login -> 로그인 (인증)
-    @PostMapping("/login")
-    public ResponseEntity<UserVo> authenticateUser(@RequestBody UserLoginData loginData, HttpSession session) {
-        if (session != null && session.getAttribute("loginUser") != null) {
-            UserVo loginUser = (UserVo) session.getAttribute("loginUser");
-            return ResponseEntity.ok(loginUser);
-        }
+	// POST : /api/users/login -> 로그인 (인증)
+	@PostMapping("/login")
+	public ResponseEntity<UserVo> authenticateUser(@RequestBody LoginRequestDto loginData, HttpSession session) {
+		if (session != null && session.getAttribute("loginUser") != null) {
+			UserVo loginUser = (UserVo) session.getAttribute("loginUser");
+			return ResponseEntity.ok(loginUser);
+		}
 
-        if (loginData.getUserId().isEmpty() || loginData.getPassword().isEmpty()) {
-            System.err.println("no user_id or password");
-            return ResponseEntity.ofNullable(null);
-        }
+		if (loginData.getUserId().isEmpty() || loginData.getPassword().isEmpty()) {
+			System.err.println("no user_id or password");
+			return ResponseEntity.ofNullable(null);
+		}
 
-        UserVo loginUser = userService.authenticateUser(loginData);
+		UserVo loginUser = userService.authenticateUser(loginData);
 
-        if (loginUser != null) {
-            loginUser.setPassword(""); // 비밀번호 숨김 처리
-            session.setAttribute("loginUser", loginUser);
-            return ResponseEntity.ok(loginUser);
-        } else {
-            return ResponseEntity.ofNullable(null);
-        }
-    }
+		if (loginUser != null) {
+			loginUser.setPassword(""); // 비밀번호 숨김 처리
+			session.setAttribute("loginUser", loginUser);
+			System.out.println("user_id: " + loginUser.getUserId());
+			System.out.println("nickname: " + loginUser.getNickname());
+		
+			return ResponseEntity.ok(loginUser);
+		} else {
+			return ResponseEntity.ofNullable(null);
+		}
+	}
 
-    // POST : /api/users/logout -> 로그아웃 (세션 무효화)
-    @PostMapping("/logout")
-    public void invalidateSession(HttpSession session) {
-        session.removeAttribute("loginUser");
-        session.invalidate();
-    }
+	// POST : /api/users/logout -> 로그아웃 (세션 무효화)
+	@PostMapping("/logout")
+	public void invalidateSession(HttpSession session) {
+		session.removeAttribute("loginUser");
+		session.invalidate();
+	}
 
-    private static final Logger logger = LoggerFactory.getLogger(UserController.class);
-    
-    // POST : /api/users -> 새로운 유저 생성
-    @PostMapping
-    public ResponseEntity<UserVo> registerUser(@RequestBody UserVo user) {
-        UserVo savedUser = userService.registerUser(user);
-        return ResponseEntity.ok(savedUser);
-    }
-    	
-    // PATCH : /api/users/{id} -> 기존 유저 정보 수정
-    @PatchMapping("/{id}")
-    public ResponseEntity<UserVo> updateUserFields(@RequestBody Map<String, Object> updates, @PathVariable Long id) {
-    	// 업데이트 날짜를 DB에 저장하기 위해 백엔드에서 직접 추가 
-    	updates.put("update_date", java.sql.Date.valueOf(LocalDate.now()));
-    	UserVo updatedUser = userService.updateUserFields(id, updates);
-        return ResponseEntity.ok(updatedUser);
-    }
+	private static final Logger logger = LoggerFactory.getLogger(UserController.class);
 
-    // DELETE : /api/users/{id} -> 기존 유저 삭제
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
-    	userService.deleteUser(id);
-        return ResponseEntity.ok().<Void>build();
-    }
+	// POST : /api/users -> 새로운 유저 생성
+	@PostMapping
+	public ResponseEntity<UserVo> registerUser(@RequestBody UserVo user) {
+		if (user.getPhoneNumber() != null && user.getPhoneNumber().trim().isEmpty()) {
+			user.setPhoneNumber(null);
+		}
 
-    // GET : /api/users/session -> 로그인 상태 확인
-    @GetMapping("/session")
-    public ResponseEntity<UserVo> retrieveSessionUser(HttpSession session) {
-        UserVo loginUser = (UserVo) session.getAttribute("loginUser");
+		UserVo savedUser = userService.registerUser(user);
 
-        if (loginUser != null) {
-            return ResponseEntity.ok(loginUser);
-        } else {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
-        }
-    }
-    
-    // GET : /api/users/check-user-id/?userId=입력된 값 -> 아이디 중복 체크
-    @GetMapping("/check-user-id")
-    public ResponseEntity<Boolean> checkUserId(@RequestParam("userId") String userId) {
-        // 클라이언트에서 보낸 userId를 처리
-        boolean isTaken = userService.checkUserIdInDatabase(userId);
-        return ResponseEntity.ok(isTaken);
-    }
-    
-    // GET : /api/users/check-user-nickname/?nickname=입력된 값 -> 닉네임 중복 체크
-    @GetMapping("/check-user-nickname")
-    public ResponseEntity<Boolean> checkNickname(@RequestParam("nickname") String nickname) {
-        // 클라이언트에서 보낸 userId를 처리
-        boolean isTaken = userService.checkNicknameInDatabase(nickname);
-        return ResponseEntity.ok(isTaken);
-    }
+		return ResponseEntity.ok(savedUser);
+	}
 
+	// PATCH : /api/users/{id} -> 기존 유저 정보 수정
+	@PatchMapping("/{id}")
+	public ResponseEntity<UserVo> updateUserFields(@RequestBody Map<String, Object> updates, @PathVariable Long id) {
+		// 업데이트 날짜를 DB에 저장하기 위해 백엔드에서 직접 추가
+		updates.put("update_date", java.sql.Date.valueOf(LocalDate.now()));
+		UserVo updatedUser = userService.updateUserFields(id, updates);
+		return ResponseEntity.ok(updatedUser);
+	}
+
+	// PATCH : /api/users/{id}/password -> 기존 유저 정보 수정: 비밀번호 수정
+	@PatchMapping("/{id}/password")
+	public ResponseEntity<?> updatePassword(@PathVariable Long id, @RequestBody PasswordUpdateRequestDto passwords) {
+		String currentPassword = passwords.getCurrentPassword();
+		String newPassword = passwords.getNewPassword();
+		String confirmPassword = passwords.getConfirmPassword();
+
+		int result = userService.updatePassword(id, currentPassword, newPassword, confirmPassword);
+
+		if (result == 1) {
+		    return ResponseEntity.ok("비밀번호가 성공적으로 변경되었습니다.");
+		    
+		} else if (result == -1) {
+		    return ResponseEntity.badRequest().body("현재 비밀번호가 틀립니다.");
+		    
+		} else if (result == -2) {
+		    return ResponseEntity.badRequest().body("새 비밀번호와 확인이 일치하지 않습니다.");
+		    
+		} else if (result == -3) {
+		    return ResponseEntity.badRequest().body("현재 비밀번호와 새 비밀번호가 동일합니다. 다른 비밀번호를 입력해주세요.");
+		    
+		} else {
+		    return ResponseEntity.badRequest().body("비밀번호 변경 실패");
+		}
+
+	}
+
+	// DELETE : /api/users/{id} -> 기존 유저 삭제
+	@DeleteMapping("/{id}")
+	public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+		userService.deleteUser(id);
+		return ResponseEntity.ok().<Void>build();
+	}
+
+	// GET : /api/users/session -> 로그인 상태 확인
+	@GetMapping("/session")
+	public ResponseEntity<UserVo> retrieveSessionUser(HttpSession session) {
+		UserVo loginUser = (UserVo) session.getAttribute("loginUser");
+
+		if (loginUser != null) {
+			return ResponseEntity.ok(loginUser);
+		} else {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
+		}
+	}
+
+	// GET : /api/users/check-user-id/?userId=입력된 값 -> 아이디 중복 체크
+	@GetMapping("/check-user-id")
+	public ResponseEntity<Boolean> checkUserId(@RequestParam("userId") String userId) {
+		// 클라이언트에서 보낸 userId를 처리
+		boolean isTaken = userService.checkUserIdInDatabase(userId);
+		return ResponseEntity.ok(isTaken);
+	}
+
+	// GET : /api/users/check-user-nickname/?nickname=입력된 값 -> 닉네임 중복 체크
+	@GetMapping("/check-user-nickname")
+	public ResponseEntity<Boolean> checkNickname(@RequestParam("nickname") String nickname) {
+		// 클라이언트에서 보낸 userId를 처리
+		boolean isTaken = userService.checkNicknameInDatabase(nickname);
+		return ResponseEntity.ok(isTaken);
+	}
+
+	// GET : /api/users/check-user-email/?email=입력된 값 -> 이메일 중복 체크
+	@GetMapping("/check-user-email")
+	public ResponseEntity<Boolean> checkEmail(@RequestParam("email") String email) {
+		// 클라이언트에서 보낸 userId를 처리
+		boolean isTaken = userService.checkEmailInDatabase(email);
+		return ResponseEntity.ok(isTaken);
+	}
 
 }

@@ -2,24 +2,32 @@ package himedia.hpm_spring_portfolio.service;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import himedia.hpm_spring_portfolio.dto.LoginRequestDto;
 import himedia.hpm_spring_portfolio.exception.UserNotFoundException;
 import himedia.hpm_spring_portfolio.mappers.UserMapper;
-import himedia.hpm_spring_portfolio.repository.vo.UserLoginData;
 import himedia.hpm_spring_portfolio.repository.vo.UserVo;
 
 @Service
 public class UserService {
 
+	private final UserMapper userMapper;
+	private final PasswordEncoder passwordEncoder;
+
 	@Autowired
-	private UserMapper userMapper;
+	public UserService(UserMapper userMapper, PasswordEncoder passwordEncoder) {
+		this.userMapper = userMapper;
+		this.passwordEncoder = passwordEncoder;
+	}
 
 	// 전체 유저 조회
 	public List<UserVo> retrieveAllUsers() {
@@ -27,19 +35,33 @@ public class UserService {
 	}
 
 	// 로그인
-	public UserVo authenticateUser(UserLoginData loginData) {
-		UserVo user = userMapper.authenticateUser(loginData.getUserId(), loginData.getPassword());
+	public UserVo authenticateUser(LoginRequestDto loginData) {
+		// 1. user_id로만 사용자 가져오기
+		UserVo user = userMapper.findByUserId(loginData.getUserId());
 
-		return user;
+		// 2. 가져온 user와 비밀번호 비교
+		if (user != null && passwordEncoder.matches(loginData.getPassword(), user.getPassword())) {
+			return user; // 로그인 성공
+		} else {
+			return null; // 로그인 실패
+		}
 	}
 
 	// 회원가입
 	public UserVo registerUser(UserVo user) {
-		userMapper.registerUser(user);
+	    // 1. 비밀번호 암호화
+	    String encodedPassword = passwordEncoder.encode(user.getPassword());
+	    user.setPassword(encodedPassword);
 
-		Long id = user.getId();
+	    // ✅ 2. 현재 시각을 가입일로 설정
+	    user.setRegisterDate(LocalDateTime.now());
 
-		return userMapper.retrieveUserById(id);
+	    // 3. 저장
+	    userMapper.registerUser(user);
+
+	    // 4. 다시 조회해서 리턴
+	    Long id = user.getId();
+	    return userMapper.retrieveUserById(id);
 	}
 
 	// 유저 정보 수정
@@ -59,8 +81,6 @@ public class UserService {
 				if ("name".equals(key) || "nickname".equals(key) || "userId".equals(key) || "password".equals(key)) {
 					throw new IllegalArgumentException(key + " cannot be null");
 				}
-				// 선택적 필드들에 대해서는 null 값이 들어오면 빈 문자열("")로 처리
-				value = "";
 			}
 
 			// 필드 값 수정
@@ -74,21 +94,11 @@ public class UserService {
 			case "user_id":
 				user.setUserId((String) value);
 				break;
-			case "password":
-				user.setPassword((String) value);
-				break;
 			case "birth":
-				try {
-					// 리액트에서 생년월일 문자열 받아오기
-					String birthStr = (String) value;
-					// 날짜 형식 지정자 생성
-					SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-					// 문자열을 Date 객체로 변환
-					Date birthDate = sdf.parse(birthStr);
-					user.setBirth(birthDate);
-				} catch (ParseException e) {
-					// 날짜 포맷이 잘못된 경우 예외 처리
-					throw new IllegalArgumentException("Invalid date format for birth", e);
+				if (value != null && !value.toString().isBlank()) {
+					user.setBirth(LocalDate.parse(value.toString()));
+				} else {
+					user.setBirth(null);
 				}
 				break;
 			case "phone_number":
@@ -104,18 +114,47 @@ public class UserService {
 				user.setRegisterDate((LocalDateTime) value);
 				break;
 			case "update_date":
-			    // 무시하거나 로그로 남기기만 해도 됨
+			    // 이미 setUpdateDate()로 설정할 것이므로 여기선 무시
 			    break;
 			default:
 				throw new IllegalArgumentException("Invalid field name: " + key);
 			}
 
 		});
+		
+		user.setUpdateDate(LocalDateTime.now());
+
 		// 3️. 수정된 데이터를 저장
 		userMapper.updateUserFields(user);
 
 		// 4️. 업데이트된 유저 정보 반환
 		return user;
+	}
+
+	// 유저 정보 수정: 비밀번호 수정
+	public int updatePassword(Long id, String currentPassword, String newPassword, String confirmPassword) {
+		UserVo user = userMapper.retrieveUserById(id);
+
+		if (user == null) {
+			return 0; // 사용자 없음
+		}
+
+		if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+			return -1; // 현재 비번 불일치
+		}
+
+		if (!newPassword.equals(confirmPassword)) {
+			return -2; // 새 비번 불일치
+		}
+
+		if (passwordEncoder.matches(newPassword, user.getPassword())) {
+			return -3; // 새 비번 == 현재 비번 (변경 불가)
+		}
+
+		String encodedNewPassword = passwordEncoder.encode(newPassword);
+		userMapper.updatePassword(id, encodedNewPassword);
+
+		return 1; // 성공
 	}
 
 	// 유저 삭제
@@ -132,5 +171,10 @@ public class UserService {
 	// 닉네임 중복 체크 메서드
 	public boolean checkNicknameInDatabase(String nickname) {
 		return userMapper.countByNickname(nickname) == 0; // 0이면 사용 가능, 아니면 중복
+	}
+
+	// 이메일 중복 체크 메서드
+	public boolean checkEmailInDatabase(String email) {
+		return userMapper.countByEmail(email) == 0; // 0이면 사용 가능, 아니면 중복
 	}
 }
